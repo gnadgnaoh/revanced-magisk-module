@@ -37,4 +37,5 @@ excluded-patches = "'Enable debug logging' 'Custom package name' 'Custom brandin
 build-mode = "apk"
 version = "19.11.38"
 patches-version = " v2.223.0"
+integrations-version = "v0.150.0"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube/"
