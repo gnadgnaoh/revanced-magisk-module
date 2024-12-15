@@ -55,7 +55,7 @@ patches-source = "inotia00/revanced-patches"
 cli-source = "inotia00/revanced-cli"
 rv-brand = "ReVanced Extended"
 build-mode = "both"
-version = "19.46.42"
+version = "19.45.36"
 patches-version = "dev"
 excluded-patches = """\
   'Custom branding icon for YouTube' \
