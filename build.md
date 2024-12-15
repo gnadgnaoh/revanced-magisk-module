@@ -1,3 +1,5 @@
+Music (arm64-v8a): 7.29.52  
+Music (arm-v7a): 7.29.52  
 YouTube: 19.46.42  
 
 Install [Microg](https://github.com/ReVanced/GmsCore/releases) for non-root YouTube and YT Music APKs  
