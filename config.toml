@@ -40,7 +40,7 @@ excluded-patches = """\
   """
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 # archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
- 'Custom branding icon for YouTube' \
+  'Custom branding icon for YouTube' \
   'Custom branding name for YouTube' \
   'Enable debug logging' \
   """
