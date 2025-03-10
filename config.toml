@@ -7,15 +7,15 @@ parallel-jobs = 1
 # you can use rvmm-config-gen to generate a config
 
 [Music-Extended]
-enabled = true
+enabled = false
 app-name = "Music"
-patches-source = "inotia00/revanced-patches"
+patches-source = "anddea/revanced-patches"
 cli-source = "inotia00/revanced-cli"
 rv-brand = "ReVanced Extended"
-build-mode = "both"
+build-mode = "apk"
 arch = "arm64-v8a"
 version = "8.05.51"
-patches-version = "dev"
+patches-version = "latest"
 excluded-patches = """\
   'Custom branding icon for YouTube Music' \
   'Custom branding name for YouTube Music' \
@@ -27,14 +27,20 @@ apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
 [YouTube-Extended]
 enabled = true
 app-name = "YouTube"
-patches-source = "inotia00/revanced-patches"
+patches-source = "anddea/revanced-patches"
 cli-source = "inotia00/revanced-cli"
 rv-brand = "ReVanced Extended"
-build-mode = "both"
-version = "19.47.53"
-patches-version = "dev"
+build-mode = "apk"
+version = "20.06.42"
+patches-version = "latest"
 excluded-patches = """\
   'Custom branding icon for YouTube' \
+  'Custom branding name for YouTube' \
+  'Enable debug logging' \
+  """
+apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
+# archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
+ 'Custom branding icon for YouTube' \
   'Custom branding name for YouTube' \
   'Enable debug logging' \
   """
