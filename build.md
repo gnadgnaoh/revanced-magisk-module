@@ -1,3 +1,4 @@
+Music-Extended: 8.11.51  
 YouTube-Extended: 20.12.38  
 
 Install [Microg](https://github.com/ReVanced/GmsCore/releases) for non-root YouTube and YT Music APKs  
