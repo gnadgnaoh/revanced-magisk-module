@@ -41,3 +41,12 @@ excluded-patches = """\
   """
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 # archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
+
+[Spotify]
+app-name = "Spotify"
+build-mode = "apk"
+version = "latest
+excluded-patches = """\
+  'Custom theme' \
+  """
+uptodown-dlurl = "https://spotify.en.uptodown.com/android"
