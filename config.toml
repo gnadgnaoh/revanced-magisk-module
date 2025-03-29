@@ -45,5 +45,5 @@ apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 [Spotify]
 app-name = "Spotify"
 build-mode = "apk"
-version = "latest
+excluded-patches = "'Custom theme'"
 uptodown-dlurl = "https://spotify.en.uptodown.com/android"
