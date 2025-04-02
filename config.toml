@@ -32,7 +32,7 @@ patches-source = "inotia00/revanced-patches"
 cli-source = "inotia00/revanced-cli"
 rv-brand = "ReVanced Extended"
 build-mode = "apk"
-version = "20.12.38"
+version = "20.12.46"
 patches-version = "dev"
 patcher-args = "-e 'Spoof streaming data' -OuseIOSClient=true -e 'GmsCore support' -OcheckGmsCore=false"
 excluded-patches = """\
