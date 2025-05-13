@@ -1,5 +1,5 @@
 Music-Extended: 8.12.53  
-Spotify: 9.0.44.4  
+Spotify: 9.0.44.471  
 YouTube-Extended: 20.12.46  
 
 Install [Microg](https://github.com/ReVanced/GmsCore/releases) for non-root YouTube and YT Music APKs  
