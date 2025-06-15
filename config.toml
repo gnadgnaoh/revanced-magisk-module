@@ -9,7 +9,7 @@ parallel-jobs = 1
 [YouTube]
 build-mode = "apk"
 exclusive-patches = false
-excluded-patches = ""'Hide ads' 'Video ads' 'Hide player overlay buttons' 'SponsorBlock' 'Spoof app version' 'GmsCore support' 'Bypass URL redirects' 'Open links externally' 'Remove tracking query parameter' 'Spoof video streams'"
+excluded-patches = "'Hide ads' 'Video ads' 'Hide player overlay buttons' 'SponsorBlock' 'Spoof app version' 'GmsCore support' 'Bypass URL redirects' 'Open links externally' 'Remove tracking query parameter' 'Spoof video streams'"
 included-patches = ""
 version = "auto"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
