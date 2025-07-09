@@ -12,6 +12,7 @@ exclusive-patches = true
 included-patches = "'Hide ads' 'Remove background playback restrictions' 'Navigation buttons' 'Video ads' 'Hide player overlay buttons' 'SponsorBlock' 'GmsCore support' 'Bypass URL redirects' 'Open links externally' 'Remove tracking query parameter' 'Spoof video streams'"
 excluded-patches = ""
 version = "auto"
+patches-version = "dev"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 # uptodown-dlurl = "https://youtube.en.uptodown.com/android"
 # archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
