@@ -166,6 +166,7 @@ config_update() {
 	declare -A sources
 	: >"$TEMP_DIR"/skipped
 	local upped=()
+	local force_upped=()
 	local prcfg=false
 	for table_name in $(toml_get_table_names); do
 		if [ -z "$table_name" ]; then continue; fi
@@ -175,8 +176,7 @@ config_update() {
 
 		force_build=$(toml_get "$t" force-build) || force_build=false
 		if [ "$force_build" = "true" ]; then
-			upped+=("$table_name")
-			prcfg=true
+			force_upped+=("$table_name")
 			continue
 		fi
 
@@ -208,9 +208,9 @@ config_update() {
 			fi
 		fi
 	done
-	if [ "$prcfg" = true ]; then
+	if [ "$prcfg" = true ] || [ "${#force_upped[@]}" -gt 0 ]; then
 		local query=""
-		for table in "${upped[@]}"; do
+		for table in "${upped[@]}" "${force_upped[@]}"; do
 			if [ -n "$query" ]; then query+=" or "; fi
 			query+=".key == \"$table\""
 		done
