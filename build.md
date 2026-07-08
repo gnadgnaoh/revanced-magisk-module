@@ -10,4 +10,4 @@ Patches: RookieEnough/patches-1.0.4.mpp
 [Changelog](https://github.com/RookieEnough/De-Vanced/releases/tag/v1.0.4)  
 
 Skipped:  
-Patches: MorpheApp/patches-1.34.0-dev.3.mpp    
+Patches: MorpheApp/patches-1.34.0-dev.3.mpp      
