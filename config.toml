@@ -20,6 +20,7 @@ cli-source = "MorpheApp/morphe-cli"
 
 [GooglePhotos]
 build-mode = "apk"
+force-build = true
 version = "latest"
 patches-version = "latest"
 patches-source = "RookieEnough/De-Vanced"
