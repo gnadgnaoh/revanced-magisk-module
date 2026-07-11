@@ -8,6 +8,7 @@ parallel-jobs = 1
 
 [YouTube-Morphe]
 build-mode = "apk"
+force-build = true
 exclusive-patches = true
 included-patches = "'Hide ads' 'Remove background playback restrictions' 'Navigation bar' 'Video ads' 'Sanitize sharing links' 'SponsorBlock' 'Bypass URL redirects' 'Open links externally' 'Spoof video streams'"
 excluded-patches = ""
@@ -30,6 +31,7 @@ uptodown-dlurl = "https://google-photos.en.uptodown.com/android"
 [Music-Morphe]
 build-mode = "apk"
 exclusive-patches = true
+force-build = true
 included-patches = "'Bypass certificate checks' 'Enable exclusive audio playback' 'Hide ads' 'Hide music video ads' 'Sanitize sharing links' 'Spoof video streams' 'Remove background playback restrictions'"
 excluded-patches = ""
 version = "latest"
