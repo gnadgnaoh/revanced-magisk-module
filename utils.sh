@@ -213,7 +213,7 @@ config_update() {
 			fi
 		fi
 	done
-	if [ "$prcfg" = true ] || [ "${#force_upped[@]}" -gt 0 ]; then
+	if [ "$prcfg" = true ]; then
 		local query=""
 		for table in "${upped[@]}" "${force_upped[@]}"; do
 			if [ -n "$query" ]; then query+=" or "; fi
