@@ -25,24 +25,11 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Update config
-        if: ${{ inputs.from_ci }}
+      # ---- Cloudflare bypass services (ported from repo1) --------------------
+      - name: Install bypass dependencies
         run: |
-          if git checkout origin/update build.md; then
-            UPDATE_CFG=$(./build.sh config.toml --config-update)
-            if [ "$UPDATE_CFG" ]; then
-              echo "$UPDATE_CFG" > config.json
-            fi
-          fi
-
-      - name: Get next version code
-        id: next_ver_code
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=$(gh release list -L 1 | awk -F '\t' '{print $3}')
-          if [ -z "$TAG" ]; then TAG=0; fi
-          echo "NEXT_VER_CODE=$((TAG + 1))" >> $GITHUB_OUTPUT
+          sudo apt-get update -y
+          sudo apt-get install -y jq curl wget unzip
 
       - name: Start FlareSolverr
         run: |
@@ -67,6 +54,26 @@ jobs:
             fi
             sleep 2
           done
+      # -----------------------------------------------------------------------
+
+      - name: Update config
+        if: ${{ inputs.from_ci }}
+        run: |
+          if git checkout origin/update build.md; then
+            UPDATE_CFG=$(./build.sh config.toml --config-update)
+            if [ "$UPDATE_CFG" ]; then
+              echo "$UPDATE_CFG" > config.json
+            fi
+          fi
+
+      - name: Get next version code
+        id: next_ver_code
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release list -L 1 | awk -F '\t' '{print $3}')
+          if [ -z "$TAG" ]; then TAG=0; fi
+          echo "NEXT_VER_CODE=$((TAG + 1))" >> $GITHUB_OUTPUT
 
       - name: Build modules/APKs
         run: if [ -f "config.json" ]; then ./build.sh config.json; else ./build.sh config.toml; fi
@@ -74,7 +81,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: $GITHUB_REPOSITORY
           NEXT_VER_CODE: ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
-          CF_BYPASS: "1"
 
       - name: Get output
         id: get_output
