@@ -250,7 +250,111 @@ _req() {
 		mv -f "$dlp" "$op"
 	fi
 }
-req() { _req "$1" "$2" -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"; }
+# -------------------- cloudflare bypass --------------------
+# Integrated from FiorenMas/Revanced-And-Revanced-Extended-Non-Root.
+# Requires FlareSolverr (port 8191) and/or CloudflareBypassForScraping (port 8000)
+# to be running (started as docker services in the GitHub Actions workflow).
+# Enabled only when CF_BYPASS=1. Fetched HTML is printed to stdout so it can be
+# used as a drop-in for `req "$url" -`. Cookies + user-agent from the last solve
+# are exported (FS_COOKIES / FS_UA) so subsequent APK downloads can reuse them.
+
+CF_BYPASS=${CF_BYPASS:-0}
+export FS_COOKIES="${FS_COOKIES:-}"
+export FS_UA="${FS_UA:-}"
+_FFS_FAILED=${_FFS_FAILED:-0}
+
+# FlareSolverr: returns solved HTML on stdout, sets FS_COOKIES/FS_UA
+_fs_get() {
+	local url=$1
+	local max_retries=3 attempt response status _html
+	for attempt in $(seq 1 $max_retries); do
+		response=$(curl -s -X POST 'http://localhost:8191/v1' \
+			-H 'Content-Type: application/json' \
+			-d "{\"cmd\":\"request.get\",\"url\":\"$url\",\"maxTimeout\":60000}")
+		status=$(echo "$response" | jq -r '.status // empty')
+		if [ "$status" = "ok" ]; then
+			_html=$(echo "$response" | jq -r '.solution.response // empty')
+			FS_COOKIES=$(echo "$response" | jq -r '[.solution.cookies[]? | .name + "=" + .value] | join("; ")')
+			FS_UA=$(echo "$response" | jq -r '.solution.userAgent // empty')
+			export FS_COOKIES FS_UA
+			printf '%s' "$_html"
+			return 0
+		fi
+		epr "[!] FlareSolverr attempt $attempt/$max_retries failed: $url"
+		sleep 5
+	done
+	epr "[-] FlareSolverr failed after $max_retries attempts: $url"
+	return 1
+}
+
+# CloudflareBypassForScraping: returns solved HTML on stdout, sets FS_COOKIES/FS_UA
+_cfb_get() {
+	local url=$1
+	local max_retries=3 attempt response_file http_code _html cfb_ua
+	for attempt in $(seq 1 $max_retries); do
+		rm -f "$TEMP_DIR/cfb_headers.txt"
+		response_file=$(mktemp)
+		http_code=$(curl -s -o "$response_file" -w '%{http_code}' \
+			-D "$TEMP_DIR/cfb_headers.txt" \
+			-G --data-urlencode "url=$url" \
+			--max-time 120 \
+			"http://localhost:8000/html")
+		if [ "$http_code" = "200" ] && [ -s "$response_file" ]; then
+			FS_COOKIES=$(grep -i '^x-cf-bypasser-cookies:' "$TEMP_DIR/cfb_headers.txt" 2>/dev/null | cut -d':' -f2- | xargs)
+			cfb_ua=$(grep -i '^x-cf-bypasser-user-agent:' "$TEMP_DIR/cfb_headers.txt" 2>/dev/null | cut -d':' -f2- | xargs)
+			[ -n "$cfb_ua" ] && FS_UA="$cfb_ua"
+			export FS_COOKIES FS_UA
+			cat "$response_file"
+			rm -f "$response_file" "$TEMP_DIR/cfb_headers.txt"
+			return 0
+		fi
+		epr "[!] CFB attempt $attempt/$max_retries: HTTP $http_code: $url"
+		rm -f "$response_file"
+	done
+	return 1
+}
+
+# Wrapper: try FlareSolverr first, fall back to CFB. HTML printed to stdout.
+_cf_get() {
+	if [ "$_FFS_FAILED" -eq 0 ]; then
+		_fs_get "$@" && return 0
+		epr "[!] FlareSolverr failed, falling back to CFB"
+		_FFS_FAILED=1
+	fi
+	_cfb_get "$@"
+}
+
+req() {
+	local ip="$1" op="$2"
+	# Route apkmirror traffic through the Cloudflare bypass when enabled.
+	if [ "$CF_BYPASS" = "1" ] && [[ "$ip" == *apkmirror.com* ]]; then
+		if [ "$op" = "-" ]; then
+			# HTML fetch: return solved page on stdout
+			_cf_get "$ip" && return 0
+			return 1
+		else
+			# File download (APK/APKM): reuse cookies + UA obtained from bypass
+			[ -f "$op" ] && return 0
+			local ua="${FS_UA:-Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0}"
+			local dlp="$(dirname "$op")/tmp.$(basename "$op")"
+			if [ -f "$dlp" ]; then
+				while [ -f "$dlp" ]; do sleep 1; done
+				return 0
+			fi
+			if ! curl -L --connect-timeout 10 --retry 2 --fail -s -S \
+				-H "User-Agent: $ua" \
+				${FS_COOKIES:+-H "Cookie: $FS_COOKIES"} \
+				"$ip" -o "$dlp"; then
+				epr "Request failed: $ip"
+				rm -f "$dlp"
+				return 1
+			fi
+			mv -f "$dlp" "$op"
+			return 0
+		fi
+	fi
+	_req "$1" "$2" -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"
+}
 gh_req() { _req "$1" "$2" -H "$GH_HEADER"; }
 gh_dl() {
 	if [ ! -f "$1" ]; then
