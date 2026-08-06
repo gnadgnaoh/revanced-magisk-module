@@ -560,13 +560,38 @@ dl_apkmirror() {
 		resp=$(req "$dlurl" -)
 	fi
 	url=$(echo "$resp" | $HTMLQ --base https://www.apkmirror.com --attribute href "a.btn") || return 1
-	# The page at $url is the correct Referer for the final download.php request.
+	# The page at $url is the correct Referer for the download.php request.
 	# req() runs in a subshell on the next line, so its exported FS_* vars won't
 	# propagate here — capture the referer explicitly and pass it to the download.
 	local dl_referer="$url"
-	url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
+	# This yields the "download.php?...&forcebaseapk=true" href. On the current
+	# Cloudflare-protected apkmirror this is NOT a direct file — it's another
+	# protected interstitial page. We must solve it too and pull the real file
+	# link (a#download-link) out of it before downloading.
+	local forcebase_url
+	forcebase_url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
 
 	export FS_REFERER="$dl_referer"
+	# Solve the interstitial and extract the actual file link.
+	local inter_html real_url
+	inter_html=$(req "$forcebase_url" -) || return 1
+	real_url=$(echo "$inter_html" | $HTMLQ --base https://www.apkmirror.com --attribute href "a#download-link" 2>/dev/null | head -1)
+	if [ -z "$real_url" ]; then
+		# Fallbacks: some layouts expose the link differently.
+		real_url=$(echo "$inter_html" | grep -oP 'id="download-link"[^>]*href="\K[^"]+' | head -1)
+		[ -n "$real_url" ] && case "$real_url" in
+			http*) : ;;
+			/*) real_url="https://www.apkmirror.com$real_url" ;;
+		esac
+	fi
+	# If we found the interstitial's real link, use it; otherwise fall back to the
+	# forcebaseapk url directly (older layout where it was the file itself).
+	local final_url="${real_url:-$forcebase_url}"
+	real_url=$(echo "$final_url" | sed 's/&amp;/\&/g')
+	url="$real_url"
+	# Referer for the file request is the forcebaseapk interstitial page.
+	export FS_REFERER="$forcebase_url"
+
 	if [ "$is_bundle" = true ]; then
 		req "$url" "${output}.apkm" || return 1
 		merge_splits "${output}.apkm" "${output}"
