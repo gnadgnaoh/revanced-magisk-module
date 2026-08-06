@@ -5,7 +5,7 @@ CWD=$(pwd)
 TEMP_DIR="temp"
 BIN_DIR="bin"
 BUILD_DIR="build"
-DL_SRCS=("direct" "archive" "apkmirror" "uptodown")
+DL_SRCS=("direct" "archive" "apkmirror" "apkmirror_cf" "uptodown")
 
 if [ "${GITHUB_TOKEN-}" ]; then GH_HEADER="Authorization: token ${GITHUB_TOKEN}"; else GH_HEADER=; fi
 NEXT_VER_CODE=${NEXT_VER_CODE:-$(date +'%Y%m%d')}
@@ -862,3 +862,11 @@ description=${4}" >"${6}/module.prop"
 
 	if [ "$ENABLE_MODULE_UPDATE" = true ]; then echo "updateJson=${5}" >>"${6}/module.prop"; fi
 }
+
+# =============================================================================
+# Cloudflare bypass module
+# =============================================================================
+# shellcheck source=/dev/null
+if [ -f "${CWD:-$(pwd)}/cf_bypass.sh" ]; then
+	. "${CWD:-$(pwd)}/cf_bypass.sh"
+fi

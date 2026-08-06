@@ -1,11 +1,6 @@
 enable-magisk-update = false # set this to false if you do not want to receive updates for the module in magisk app
 parallel-jobs = 1
 
-# add 'enabled = false' for not patching a specific app or remove it from the config
-# see https://github.com/j-hc/revanced-magisk-module/blob/main/CONFIG.md for more detailed explanations
-
-# you can use rvmm-config-gen to generate a config
-
 [YouTube-Morphe]
 build-mode = "apk"
 exclusive-patches = true
@@ -14,7 +9,7 @@ excluded-patches = ""
 version = "latest"
 arch = "arm64-v8a"
 patches-version = "dev"
-uptodown-dlurl = "https://youtube.en.uptodown.com/android"
+apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 patches-source = "MorpheApp/morphe-patches"
 cli-source = "MorpheApp/morphe-cli"
 
@@ -26,7 +21,7 @@ patches-version = "latest"
 patches-source = "RookieEnough/De-Vanced"
 cli-source = "MorpheApp/morphe-cli"
 arch = "arm64-v8a"
-uptodown-dlurl = "https://google-photos.en.uptodown.com/android"
+apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/photos/"
 
 [Music-Morphe]
 build-mode = "apk"
@@ -38,4 +33,4 @@ patches-version = "dev"
 patches-source = "MorpheApp/morphe-patches"
 cli-source = "MorpheApp/morphe-cli"
 arch = "arm64-v8a"
-uptodown-dlurl = "https://youtube-music.en.uptodown.com/android"
+apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
