@@ -252,32 +252,34 @@ _req() {
 }
 # -------------------- cloudflare bypass --------------------
 # Integrated from FiorenMas/Revanced-And-Revanced-Extended-Non-Root.
-# Requires FlareSolverr (port 8191) and/or CloudflareBypassForScraping (port 8000)
-# to be running (started as docker services in the GitHub Actions workflow).
-# Enabled only when CF_BYPASS=1. Fetched HTML is printed to stdout so it can be
-# used as a drop-in for `req "$url" -`. Cookies + user-agent from the last solve
-# are exported (FS_COOKIES / FS_UA) so subsequent APK downloads can reuse them.
+# Requires FlareSolverr (port 8191) and/or CloudflareBypassForScraping (port 8000),
+# started as docker services in the GitHub Actions workflow. Enabled only when
+# CF_BYPASS=1.
+#
+# Design note: solved HTML is placed in the GLOBAL variable `html` (not stdout),
+# exactly like the upstream repo. This is deliberate — command substitution
+# `x=$(...)` runs in a subshell, which would discard the FS_COOKIES/FS_UA exports
+# needed for the final file download. Callers read `$html` after calling _cf_get.
 
 CF_BYPASS=${CF_BYPASS:-0}
-export FS_COOKIES="${FS_COOKIES:-}"
-export FS_UA="${FS_UA:-}"
+FS_COOKIES="${FS_COOKIES:-}"
+FS_UA="${FS_UA:-}"
+html=""
 _FFS_FAILED=${_FFS_FAILED:-0}
 
-# FlareSolverr: returns solved HTML on stdout, sets FS_COOKIES/FS_UA
+# FlareSolverr: sets global `html`, FS_COOKIES, FS_UA
 _fs_get() {
 	local url=$1
-	local max_retries=3 attempt response status _html
+	local max_retries=3 attempt response status
 	for attempt in $(seq 1 $max_retries); do
 		response=$(curl -s -X POST 'http://localhost:8191/v1' \
 			-H 'Content-Type: application/json' \
 			-d "{\"cmd\":\"request.get\",\"url\":\"$url\",\"maxTimeout\":60000}")
 		status=$(echo "$response" | jq -r '.status // empty')
 		if [ "$status" = "ok" ]; then
-			_html=$(echo "$response" | jq -r '.solution.response // empty')
+			html=$(echo "$response" | jq -r '.solution.response // empty')
 			FS_COOKIES=$(echo "$response" | jq -r '[.solution.cookies[]? | .name + "=" + .value] | join("; ")')
 			FS_UA=$(echo "$response" | jq -r '.solution.userAgent // empty')
-			export FS_COOKIES FS_UA
-			printf '%s' "$_html"
 			return 0
 		fi
 		epr "[!] FlareSolverr attempt $attempt/$max_retries failed: $url"
@@ -287,10 +289,10 @@ _fs_get() {
 	return 1
 }
 
-# CloudflareBypassForScraping: returns solved HTML on stdout, sets FS_COOKIES/FS_UA
+# CloudflareBypassForScraping: sets global `html`, FS_COOKIES, FS_UA
 _cfb_get() {
 	local url=$1
-	local max_retries=3 attempt response_file http_code _html cfb_ua
+	local max_retries=3 attempt response_file http_code cfb_ua
 	for attempt in $(seq 1 $max_retries); do
 		rm -f "$TEMP_DIR/cfb_headers.txt"
 		response_file=$(mktemp)
@@ -300,11 +302,10 @@ _cfb_get() {
 			--max-time 120 \
 			"http://localhost:8000/html")
 		if [ "$http_code" = "200" ] && [ -s "$response_file" ]; then
+			html=$(cat "$response_file")
 			FS_COOKIES=$(grep -i '^x-cf-bypasser-cookies:' "$TEMP_DIR/cfb_headers.txt" 2>/dev/null | cut -d':' -f2- | xargs)
 			cfb_ua=$(grep -i '^x-cf-bypasser-user-agent:' "$TEMP_DIR/cfb_headers.txt" 2>/dev/null | cut -d':' -f2- | xargs)
 			[ -n "$cfb_ua" ] && FS_UA="$cfb_ua"
-			export FS_COOKIES FS_UA
-			cat "$response_file"
 			rm -f "$response_file" "$TEMP_DIR/cfb_headers.txt"
 			return 0
 		fi
@@ -314,11 +315,8 @@ _cfb_get() {
 	return 1
 }
 
-# Wrapper: try FlareSolverr first, fall back to CFB. HTML printed to stdout.
+# Wrapper: try FlareSolverr first, fall back to CFB. Result in global `html`.
 _cf_get() {
-	# Remember the last apkmirror page we solved; used as Referer for the
-	# subsequent download.php file request (apkmirror validates it).
-	export FS_REFERER="$1"
 	if [ "$_FFS_FAILED" -eq 0 ]; then
 		_fs_get "$@" && return 0
 		epr "[!] FlareSolverr failed, falling back to CFB"
@@ -329,46 +327,12 @@ _cf_get() {
 
 req() {
 	local ip="$1" op="$2"
-	# Route apkmirror traffic through the Cloudflare bypass when enabled.
-	if [ "$CF_BYPASS" = "1" ] && [[ "$ip" == *apkmirror.com* ]]; then
-		if [ "$op" = "-" ]; then
-			# HTML fetch: return solved page on stdout
-			_cf_get "$ip" && return 0
-			return 1
-		else
-			# File download (APK/APKM): reuse cookies + UA + referer from bypass.
-			# apkmirror's download.php validates the Referer and the CF clearance
-			# cookie, so all three must be sent together.
-			[ -f "$op" ] && return 0
-			local ua="${FS_UA:-Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0}"
-			local dlp="$(dirname "$op")/tmp.$(basename "$op")"
-			if [ -f "$dlp" ]; then
-				while [ -f "$dlp" ]; do sleep 1; done
-				return 0
-			fi
-			local _try
-			for _try in 1 2; do
-				# Ensure we hold a fresh clearance cookie for this session before
-				# downloading: solve the referring page (results of prior req calls
-				# were captured in subshells and did not propagate here).
-				if [ -n "$FS_REFERER" ]; then
-					_cf_get "$FS_REFERER" >/dev/null || true
-					ua="${FS_UA:-$ua}"
-				fi
-				if curl -L --connect-timeout 10 --retry 2 --fail -s -S \
-					-H "User-Agent: $ua" \
-					${FS_COOKIES:+-H "Cookie: $FS_COOKIES"} \
-					${FS_REFERER:+-H "Referer: $FS_REFERER"} \
-					"$ip" -o "$dlp"; then
-					mv -f "$dlp" "$op"
-					return 0
-				fi
-				rm -f "$dlp"
-				[ "$_try" -eq 1 ] && epr "[!] Download blocked, refreshing clearance and retrying: $ip"
-			done
-			epr "Request failed: $ip"
-			return 1
-		fi
+	# Route apkmirror HTML fetches through the Cloudflare bypass when enabled.
+	# (File downloads for apkmirror are handled directly inside dl_apkmirror.)
+	if [ "$CF_BYPASS" = "1" ] && [[ "$ip" == *apkmirror.com* ]] && [ "$op" = "-" ]; then
+		_cf_get "$ip" || return 1
+		printf '%s' "$html"
+		return 0
 	fi
 	_req "$1" "$2" -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"
 }
@@ -541,6 +505,90 @@ dl_apkmirror() {
 	fi
 
 	if [ "$arch" = "arm-v7a" ]; then arch="armeabi-v7a"; fi
+
+	# ---- When Cloudflare bypass is enabled, follow the full apkmirror flow the
+	# ---- same way FiorenMas/Revanced-And-Revanced-Extended-Non-Root does:
+	# ----   variant page -> download-button page -> #download-link -> file.
+	# ---- Solves happen in-scope (no subshell) so FS_COOKIES/FS_UA obtained by
+	# ---- _cf_get persist for the final file download.
+	if [ "$CF_BYPASS" = "1" ]; then
+		local base_url="https://www.apkmirror.com"
+		local apkmname
+		apkmname=$($HTMLQ "h1.marginZero" --text <<<"$__APKMIRROR_RESP__")
+		apkmname="${apkmname,,}" apkmname="${apkmname// /-}" apkmname="${apkmname//[^a-z0-9-]/}"
+		local variant_page="${url}/${apkmname}-${version//./-}-release/"
+
+		# NOTE: _cf_get writes the solved page into the GLOBAL `html` var. We must
+		# NOT capture it with $(...) (subshell would drop FS_COOKIES/FS_UA). Call
+		# it, then read $html directly.
+
+		# 1) Release page: solve and pick the variant matching arch/dpi/type.
+		_cf_get "$variant_page" || return 1
+		local page_html="$html"
+		local dlurl=""
+		for type in APK BUNDLE; do
+			if dlurl=$(apkmirror_search "$page_html" "$dpi" "$arch" "$type"); then
+				[ "$type" = "BUNDLE" ] && is_bundle=true || is_bundle=false
+				break
+			fi
+		done
+		if [ -z "$dlurl" ]; then
+			epr "[-] Could not find variant on apkmirror (arch=$arch dpi=$dpi)"
+			return 1
+		fi
+
+		# 2) Variant page: solve, grab the download button (a.btn).
+		_cf_get "$dlurl" || return 1
+		local dl_btn
+		dl_btn=$(echo "$html" | $HTMLQ --base "$base_url" --attribute href "a.btn" | head -1)
+		if [ -z "$dl_btn" ]; then
+			epr "[-] Could not find download button on apkmirror"
+			return 1
+		fi
+
+		# 3) Download-button page (the "...forcebaseapk=true" URL): solve it, then
+		#    extract the REAL file link (a#download-link).
+		_cf_get "$dl_btn" || return 1
+		local final_href
+		final_href=$(echo "$html" | $HTMLQ --attribute href "a#download-link" 2>/dev/null | head -1)
+		[ -z "$final_href" ] && \
+			final_href=$(echo "$html" | $HTMLQ --attribute href "span > a[rel = nofollow]" 2>/dev/null | head -1)
+		[ -z "$final_href" ] && \
+			final_href=$(echo "$html" | grep -oP 'id="download-link"[^>]*href="\K[^"]+' | head -1)
+		if [ -z "$final_href" ]; then
+			epr "[-] Could not find final download link on apkmirror"
+			return 1
+		fi
+		final_href=$(echo "$final_href" | sed 's/&amp;/\&/g')
+		case "$final_href" in
+			http*) : ;;
+			/*) final_href="$base_url$final_href" ;;
+			*) final_href="$base_url/$final_href" ;;
+		esac
+
+		# 4) Download the file. Referer = the download-button page, reuse the
+		#    FS_COOKIES / FS_UA captured by the last _cf_get above.
+		local out ua="${FS_UA:-Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0}"
+		if [ "$is_bundle" = true ]; then out="${output}.apkm"; else out="${output}"; fi
+		local dlp="$(dirname "$out")/tmp.$(basename "$out")"
+		if ! curl -L --connect-timeout 10 --retry 3 --fail -s -S \
+			-H "User-Agent: $ua" \
+			-H "Referer: $dl_btn" \
+			${FS_COOKIES:+-H "Cookie: $FS_COOKIES"} \
+			"$final_href" -o "$dlp"; then
+			epr "Request failed: $final_href"
+			rm -f "$dlp"
+			return 1
+		fi
+		mv -f "$dlp" "$out"
+
+		if [ "$is_bundle" = true ]; then
+			merge_splits "${output}.apkm" "${output}"
+		fi
+		return 0
+	fi
+
+	# ---- Original (no-bypass) path, unchanged ----
 	local resp node app_table apkmname dlurl=""
 	apkmname=$($HTMLQ "h1.marginZero" --text <<<"$__APKMIRROR_RESP__")
 	apkmname="${apkmname,,}" apkmname="${apkmname// /-}" apkmname="${apkmname//[^a-z0-9-]/}"
@@ -560,37 +608,7 @@ dl_apkmirror() {
 		resp=$(req "$dlurl" -)
 	fi
 	url=$(echo "$resp" | $HTMLQ --base https://www.apkmirror.com --attribute href "a.btn") || return 1
-	# The page at $url is the correct Referer for the download.php request.
-	# req() runs in a subshell on the next line, so its exported FS_* vars won't
-	# propagate here — capture the referer explicitly and pass it to the download.
-	local dl_referer="$url"
-	# This yields the "download.php?...&forcebaseapk=true" href. On the current
-	# Cloudflare-protected apkmirror this is NOT a direct file — it's another
-	# protected interstitial page. We must solve it too and pull the real file
-	# link (a#download-link) out of it before downloading.
-	local forcebase_url
-	forcebase_url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
-
-	export FS_REFERER="$dl_referer"
-	# Solve the interstitial and extract the actual file link.
-	local inter_html real_url
-	inter_html=$(req "$forcebase_url" -) || return 1
-	real_url=$(echo "$inter_html" | $HTMLQ --base https://www.apkmirror.com --attribute href "a#download-link" 2>/dev/null | head -1)
-	if [ -z "$real_url" ]; then
-		# Fallbacks: some layouts expose the link differently.
-		real_url=$(echo "$inter_html" | grep -oP 'id="download-link"[^>]*href="\K[^"]+' | head -1)
-		[ -n "$real_url" ] && case "$real_url" in
-			http*) : ;;
-			/*) real_url="https://www.apkmirror.com$real_url" ;;
-		esac
-	fi
-	# If we found the interstitial's real link, use it; otherwise fall back to the
-	# forcebaseapk url directly (older layout where it was the file itself).
-	local final_url="${real_url:-$forcebase_url}"
-	real_url=$(echo "$final_url" | sed 's/&amp;/\&/g')
-	url="$real_url"
-	# Referer for the file request is the forcebaseapk interstitial page.
-	export FS_REFERER="$forcebase_url"
+	url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
 
 	if [ "$is_bundle" = true ]; then
 		req "$url" "${output}.apkm" || return 1
