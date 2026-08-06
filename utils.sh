@@ -5,7 +5,7 @@ CWD=$(pwd)
 TEMP_DIR="temp"
 BIN_DIR="bin"
 BUILD_DIR="build"
-DL_SRCS=("direct" "archive" "apkmirror" "uptodown")
+DL_SRCS=("direct" "archive" "apkmirror" "apkmirror_cf" "uptodown")
 
 if [ "${GITHUB_TOKEN-}" ]; then GH_HEADER="Authorization: token ${GITHUB_TOKEN}"; else GH_HEADER=; fi
 NEXT_VER_CODE=${NEXT_VER_CODE:-$(date +'%Y%m%d')}
@@ -250,92 +250,7 @@ _req() {
 		mv -f "$dlp" "$op"
 	fi
 }
-# -------------------- cloudflare bypass --------------------
-# Integrated from FiorenMas/Revanced-And-Revanced-Extended-Non-Root.
-# Requires FlareSolverr (port 8191) and/or CloudflareBypassForScraping (port 8000),
-# started as docker services in the GitHub Actions workflow. Enabled only when
-# CF_BYPASS=1.
-#
-# Design note: solved HTML is placed in the GLOBAL variable `html` (not stdout),
-# exactly like the upstream repo. This is deliberate — command substitution
-# `x=$(...)` runs in a subshell, which would discard the FS_COOKIES/FS_UA exports
-# needed for the final file download. Callers read `$html` after calling _cf_get.
-
-CF_BYPASS=${CF_BYPASS:-0}
-FS_COOKIES="${FS_COOKIES:-}"
-FS_UA="${FS_UA:-}"
-html=""
-_FFS_FAILED=${_FFS_FAILED:-0}
-
-# FlareSolverr: sets global `html`, FS_COOKIES, FS_UA
-_fs_get() {
-	local url=$1
-	local max_retries=3 attempt response status
-	for attempt in $(seq 1 $max_retries); do
-		response=$(curl -s -X POST 'http://localhost:8191/v1' \
-			-H 'Content-Type: application/json' \
-			-d "{\"cmd\":\"request.get\",\"url\":\"$url\",\"maxTimeout\":60000}")
-		status=$(echo "$response" | jq -r '.status // empty')
-		if [ "$status" = "ok" ]; then
-			html=$(echo "$response" | jq -r '.solution.response // empty')
-			FS_COOKIES=$(echo "$response" | jq -r '[.solution.cookies[]? | .name + "=" + .value] | join("; ")')
-			FS_UA=$(echo "$response" | jq -r '.solution.userAgent // empty')
-			return 0
-		fi
-		epr "[!] FlareSolverr attempt $attempt/$max_retries failed: $url"
-		sleep 5
-	done
-	epr "[-] FlareSolverr failed after $max_retries attempts: $url"
-	return 1
-}
-
-# CloudflareBypassForScraping: sets global `html`, FS_COOKIES, FS_UA
-_cfb_get() {
-	local url=$1
-	local max_retries=3 attempt response_file http_code cfb_ua
-	for attempt in $(seq 1 $max_retries); do
-		rm -f "$TEMP_DIR/cfb_headers.txt"
-		response_file=$(mktemp)
-		http_code=$(curl -s -o "$response_file" -w '%{http_code}' \
-			-D "$TEMP_DIR/cfb_headers.txt" \
-			-G --data-urlencode "url=$url" \
-			--max-time 120 \
-			"http://localhost:8000/html")
-		if [ "$http_code" = "200" ] && [ -s "$response_file" ]; then
-			html=$(cat "$response_file")
-			FS_COOKIES=$(grep -i '^x-cf-bypasser-cookies:' "$TEMP_DIR/cfb_headers.txt" 2>/dev/null | cut -d':' -f2- | xargs)
-			cfb_ua=$(grep -i '^x-cf-bypasser-user-agent:' "$TEMP_DIR/cfb_headers.txt" 2>/dev/null | cut -d':' -f2- | xargs)
-			[ -n "$cfb_ua" ] && FS_UA="$cfb_ua"
-			rm -f "$response_file" "$TEMP_DIR/cfb_headers.txt"
-			return 0
-		fi
-		epr "[!] CFB attempt $attempt/$max_retries: HTTP $http_code: $url"
-		rm -f "$response_file"
-	done
-	return 1
-}
-
-# Wrapper: try FlareSolverr first, fall back to CFB. Result in global `html`.
-_cf_get() {
-	if [ "$_FFS_FAILED" -eq 0 ]; then
-		_fs_get "$@" && return 0
-		epr "[!] FlareSolverr failed, falling back to CFB"
-		_FFS_FAILED=1
-	fi
-	_cfb_get "$@"
-}
-
-req() {
-	local ip="$1" op="$2"
-	# Route apkmirror HTML fetches through the Cloudflare bypass when enabled.
-	# (File downloads for apkmirror are handled directly inside dl_apkmirror.)
-	if [ "$CF_BYPASS" = "1" ] && [[ "$ip" == *apkmirror.com* ]] && [ "$op" = "-" ]; then
-		_cf_get "$ip" || return 1
-		printf '%s' "$html"
-		return 0
-	fi
-	_req "$1" "$2" -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"
-}
+req() { _req "$1" "$2" -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"; }
 gh_req() { _req "$1" "$2" -H "$GH_HEADER"; }
 gh_dl() {
 	if [ ! -f "$1" ]; then
@@ -505,90 +420,6 @@ dl_apkmirror() {
 	fi
 
 	if [ "$arch" = "arm-v7a" ]; then arch="armeabi-v7a"; fi
-
-	# ---- When Cloudflare bypass is enabled, follow the full apkmirror flow the
-	# ---- same way FiorenMas/Revanced-And-Revanced-Extended-Non-Root does:
-	# ----   variant page -> download-button page -> #download-link -> file.
-	# ---- Solves happen in-scope (no subshell) so FS_COOKIES/FS_UA obtained by
-	# ---- _cf_get persist for the final file download.
-	if [ "$CF_BYPASS" = "1" ]; then
-		local base_url="https://www.apkmirror.com"
-		local apkmname
-		apkmname=$($HTMLQ "h1.marginZero" --text <<<"$__APKMIRROR_RESP__")
-		apkmname="${apkmname,,}" apkmname="${apkmname// /-}" apkmname="${apkmname//[^a-z0-9-]/}"
-		local variant_page="${url}/${apkmname}-${version//./-}-release/"
-
-		# NOTE: _cf_get writes the solved page into the GLOBAL `html` var. We must
-		# NOT capture it with $(...) (subshell would drop FS_COOKIES/FS_UA). Call
-		# it, then read $html directly.
-
-		# 1) Release page: solve and pick the variant matching arch/dpi/type.
-		_cf_get "$variant_page" || return 1
-		local page_html="$html"
-		local dlurl=""
-		for type in APK BUNDLE; do
-			if dlurl=$(apkmirror_search "$page_html" "$dpi" "$arch" "$type"); then
-				[ "$type" = "BUNDLE" ] && is_bundle=true || is_bundle=false
-				break
-			fi
-		done
-		if [ -z "$dlurl" ]; then
-			epr "[-] Could not find variant on apkmirror (arch=$arch dpi=$dpi)"
-			return 1
-		fi
-
-		# 2) Variant page: solve, grab the download button (a.btn).
-		_cf_get "$dlurl" || return 1
-		local dl_btn
-		dl_btn=$(echo "$html" | $HTMLQ --base "$base_url" --attribute href "a.btn" | head -1)
-		if [ -z "$dl_btn" ]; then
-			epr "[-] Could not find download button on apkmirror"
-			return 1
-		fi
-
-		# 3) Download-button page (the "...forcebaseapk=true" URL): solve it, then
-		#    extract the REAL file link (a#download-link).
-		_cf_get "$dl_btn" || return 1
-		local final_href
-		final_href=$(echo "$html" | $HTMLQ --attribute href "a#download-link" 2>/dev/null | head -1)
-		[ -z "$final_href" ] && \
-			final_href=$(echo "$html" | $HTMLQ --attribute href "span > a[rel = nofollow]" 2>/dev/null | head -1)
-		[ -z "$final_href" ] && \
-			final_href=$(echo "$html" | grep -oP 'id="download-link"[^>]*href="\K[^"]+' | head -1)
-		if [ -z "$final_href" ]; then
-			epr "[-] Could not find final download link on apkmirror"
-			return 1
-		fi
-		final_href=$(echo "$final_href" | sed 's/&amp;/\&/g')
-		case "$final_href" in
-			http*) : ;;
-			/*) final_href="$base_url$final_href" ;;
-			*) final_href="$base_url/$final_href" ;;
-		esac
-
-		# 4) Download the file. Referer = the download-button page, reuse the
-		#    FS_COOKIES / FS_UA captured by the last _cf_get above.
-		local out ua="${FS_UA:-Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0}"
-		if [ "$is_bundle" = true ]; then out="${output}.apkm"; else out="${output}"; fi
-		local dlp="$(dirname "$out")/tmp.$(basename "$out")"
-		if ! curl -L --connect-timeout 10 --retry 3 --fail -s -S \
-			-H "User-Agent: $ua" \
-			-H "Referer: $dl_btn" \
-			${FS_COOKIES:+-H "Cookie: $FS_COOKIES"} \
-			"$final_href" -o "$dlp"; then
-			epr "Request failed: $final_href"
-			rm -f "$dlp"
-			return 1
-		fi
-		mv -f "$dlp" "$out"
-
-		if [ "$is_bundle" = true ]; then
-			merge_splits "${output}.apkm" "${output}"
-		fi
-		return 0
-	fi
-
-	# ---- Original (no-bypass) path, unchanged ----
 	local resp node app_table apkmname dlurl=""
 	apkmname=$($HTMLQ "h1.marginZero" --text <<<"$__APKMIRROR_RESP__")
 	apkmname="${apkmname,,}" apkmname="${apkmname// /-}" apkmname="${apkmname//[^a-z0-9-]/}"
@@ -1031,3 +862,13 @@ description=${4}" >"${6}/module.prop"
 
 	if [ "$ENABLE_MODULE_UPDATE" = true ]; then echo "updateJson=${5}" >>"${6}/module.prop"; fi
 }
+
+# =============================================================================
+# Cloudflare bypass module (ported from Revanced-And-Revanced-Extended-Non-Root)
+# Đăng ký nguồn tải "apkmirror_cf". Source ở cuối để mọi hàm tiện ích
+# (pr/epr/wpr/merge_splits/isoneof) đã được định nghĩa trước.
+# =============================================================================
+# shellcheck source=/dev/null
+if [ -f "${CWD:-$(pwd)}/cf_bypass.sh" ]; then
+	. "${CWD:-$(pwd)}/cf_bypass.sh"
+fi
