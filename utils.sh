@@ -316,6 +316,9 @@ _cfb_get() {
 
 # Wrapper: try FlareSolverr first, fall back to CFB. HTML printed to stdout.
 _cf_get() {
+	# Remember the last apkmirror page we solved; used as Referer for the
+	# subsequent download.php file request (apkmirror validates it).
+	export FS_REFERER="$1"
 	if [ "$_FFS_FAILED" -eq 0 ]; then
 		_fs_get "$@" && return 0
 		epr "[!] FlareSolverr failed, falling back to CFB"
@@ -333,7 +336,9 @@ req() {
 			_cf_get "$ip" && return 0
 			return 1
 		else
-			# File download (APK/APKM): reuse cookies + UA obtained from bypass
+			# File download (APK/APKM): reuse cookies + UA + referer from bypass.
+			# apkmirror's download.php validates the Referer and the CF clearance
+			# cookie, so all three must be sent together.
 			[ -f "$op" ] && return 0
 			local ua="${FS_UA:-Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0}"
 			local dlp="$(dirname "$op")/tmp.$(basename "$op")"
@@ -341,16 +346,28 @@ req() {
 				while [ -f "$dlp" ]; do sleep 1; done
 				return 0
 			fi
-			if ! curl -L --connect-timeout 10 --retry 2 --fail -s -S \
-				-H "User-Agent: $ua" \
-				${FS_COOKIES:+-H "Cookie: $FS_COOKIES"} \
-				"$ip" -o "$dlp"; then
-				epr "Request failed: $ip"
+			local _try
+			for _try in 1 2; do
+				# Ensure we hold a fresh clearance cookie for this session before
+				# downloading: solve the referring page (results of prior req calls
+				# were captured in subshells and did not propagate here).
+				if [ -n "$FS_REFERER" ]; then
+					_cf_get "$FS_REFERER" >/dev/null || true
+					ua="${FS_UA:-$ua}"
+				fi
+				if curl -L --connect-timeout 10 --retry 2 --fail -s -S \
+					-H "User-Agent: $ua" \
+					${FS_COOKIES:+-H "Cookie: $FS_COOKIES"} \
+					${FS_REFERER:+-H "Referer: $FS_REFERER"} \
+					"$ip" -o "$dlp"; then
+					mv -f "$dlp" "$op"
+					return 0
+				fi
 				rm -f "$dlp"
-				return 1
-			fi
-			mv -f "$dlp" "$op"
-			return 0
+				[ "$_try" -eq 1 ] && epr "[!] Download blocked, refreshing clearance and retrying: $ip"
+			done
+			epr "Request failed: $ip"
+			return 1
 		fi
 	fi
 	_req "$1" "$2" -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"
@@ -543,8 +560,13 @@ dl_apkmirror() {
 		resp=$(req "$dlurl" -)
 	fi
 	url=$(echo "$resp" | $HTMLQ --base https://www.apkmirror.com --attribute href "a.btn") || return 1
+	# The page at $url is the correct Referer for the final download.php request.
+	# req() runs in a subshell on the next line, so its exported FS_* vars won't
+	# propagate here — capture the referer explicitly and pass it to the download.
+	local dl_referer="$url"
 	url=$(req "$url" - | $HTMLQ --base https://www.apkmirror.com --attribute href "span > a[rel = nofollow]") || return 1
 
+	export FS_REFERER="$dl_referer"
 	if [ "$is_bundle" = true ]; then
 		req "$url" "${output}.apkm" || return 1
 		merge_splits "${output}.apkm" "${output}"
