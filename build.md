@@ -1,4 +1,5 @@
 GooglePhotos: 7.87.0.957333026  
+Music-Morphe: 9.31.51  
 YouTube-Morphe: 21.32.3-SECONDARY  
 
 Install [Microg](https://github.com/MorpheApp/MicroG-RE/) for non-root YouTube and YT Music APKs  
