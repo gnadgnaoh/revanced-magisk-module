@@ -5,7 +5,7 @@ CWD=$(pwd)
 TEMP_DIR="temp"
 BIN_DIR="bin"
 BUILD_DIR="build"
-DL_SRCS=("direct" "archive" "apkmirror" "uptodown")
+DL_SRCS=("direct" "archive" "apkmirror" "apkmirror_cf" "uptodown")
 
 if [ "${GITHUB_TOKEN-}" ]; then GH_HEADER="Authorization: token ${GITHUB_TOKEN}"; else GH_HEADER=; fi
 NEXT_VER_CODE=${NEXT_VER_CODE:-$(date +'%Y%m%d')}
@@ -179,12 +179,18 @@ config_update() {
 	declare -A sources
 	: >"$TEMP_DIR"/skipped
 	local upped=()
+	local force_upped=()
 	local prcfg=false
 	for table_name in $(toml_get_table_names); do
 		if [ -z "$table_name" ]; then continue; fi
 		t=$(toml_get_table "$table_name")
 		enabled=$(toml_get "$t" enabled) || enabled=true
 		if [ "$enabled" = "false" ]; then continue; fi
+		force_build=$(toml_get "$t" force-build) || force_build=false
+		if [ "$force_build" = "true" ]; then
+			force_upped+=("$table_name")
+			continue
+		fi
 		PATCHES_SRC=$(toml_get "$t" patches-source) || PATCHES_SRC=$DEF_PATCHES_SRC
 		PATCHES_VER=$(toml_get "$t" patches-version) || PATCHES_VER=$DEF_PATCHES_VER
 		if [[ -v sources["$PATCHES_SRC/$PATCHES_VER"] ]]; then
@@ -215,7 +221,7 @@ config_update() {
 	done
 	if [ "$prcfg" = true ]; then
 		local query=""
-		for table in "${upped[@]}"; do
+		for table in "${upped[@]}" "${force_upped[@]}"; do
 			if [ -n "$query" ]; then query+=" or "; fi
 			query+=".key == \"$table\""
 		done
@@ -856,3 +862,11 @@ description=${4}" >"${6}/module.prop"
 
 	if [ "$ENABLE_MODULE_UPDATE" = true ]; then echo "updateJson=${5}" >>"${6}/module.prop"; fi
 }
+
+# =============================================================================
+# Cloudflare bypass module
+# =============================================================================
+# shellcheck source=/dev/null
+if [ -f "${CWD:-$(pwd)}/cf_bypass.sh" ]; then
+	. "${CWD:-$(pwd)}/cf_bypass.sh"
+fi
