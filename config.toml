@@ -1,77 +1,39 @@
-enable-module-update = true # set this to false if you do not want to receive updates for the module
+enable-magisk-update = false # set this to false if you do not want to receive updates for the module in magisk app
 parallel-jobs = 1
 
-# add 'enabled = false' for not patching a specific app or remove it from the config
-# see https://github.com/j-hc/revanced-magisk-module/blob/main/CONFIG.md for more detailed explanations
-
-# you can use rvmm-config-gen to generate a config
-
 [YouTube-Morphe]
-app-name = "YouTube"
+build-mode = "apk"
+exclusive-patches = true
+included-patches = "'Hide ads' 'Remove background playback restrictions' 'Navigation bar' 'Video ads' 'Sanitize sharing links' 'SponsorBlock' 'Bypass URL redirects' 'Open links externally' 'Spoof video streams'"
+excluded-patches = ""
+version = "experimental"
+dpi = "480-640dpi"
+arch = "arm64-v8a"
+patches-version = "dev"
+apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 patches-source = "MorpheApp/morphe-patches"
 cli-source = "MorpheApp/morphe-cli"
-rv-brand = "Morphe"
-build-mode = "both"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
-uptodown-dlurl = "https://youtube.en.uptodown.com/android"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
-
-[Music-Morphe]
-app-name = "Music"
-patches-source = "MorpheApp/morphe-patches"
-cli-source = "MorpheApp/morphe-cli"
-rv-brand = "Morphe"
-build-mode = "both"
-arch = "both"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
-uptodown-dlurl = "https://youtube-music.en.uptodown.com/android"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.youtube.music"
-
-[Reddit-Morphe]
-app-name = "Reddit"
-rv-brand = "Morphe"
-build-mode = "both"
-patches-source = "MorpheApp/morphe-patches"
-cli-source = "MorpheApp/morphe-cli"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/redditinc/reddit/"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.reddit.frontpage"
-uptodown-dlurl = "https://reddit-official-app.en.uptodown.com/android"
-dpi = "120-640dpi"
 
 [GooglePhotos]
-build-mode = "both"
+build-mode = "apk"
+force-build = true
+version = "latest"
+patches-version = "latest"
 patches-source = "RookieEnough/De-Vanced"
 cli-source = "MorpheApp/morphe-cli"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/photos/"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.photos"
+dpi = "480-640dpi"
+arch = "arm64-v8a"
+apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/photos/"
 
-[Music]
-enabled = false
-build-mode = "both"
-arch = "both"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
-uptodown-dlurl = "https://youtube-music.en.uptodown.com/android"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.youtube.music"
-
-[YouTube]
-enabled = false
-build-mode = "both"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
-uptodown-dlurl = "https://youtube.en.uptodown.com/android"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
-
-[Twitter]
-enabled = false
-patches-source = "crimera/piko"
+[Music-Morphe]
+build-mode = "apk"
+exclusive-patches = true
+included-patches = "'Bypass certificate checks' 'Enable exclusive audio playback' 'Hide ads' 'Hide music video ads' 'Sanitize sharing links' 'Spoof video streams' 'Remove background playback restrictions'"
+excluded-patches = ""
+version = "experimental"
+patches-version = "dev"
+patches-source = "MorpheApp/morphe-patches"
 cli-source = "MorpheApp/morphe-cli"
-rv-brand = "Piko"
-apkmirror-dlurl = "https://www.apkmirror.com/apk/x-corp/twitter/"
-archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.twitter.android"
-build-mode = "module"
-version = "11.81.0-release.0"
-include-stock = "split"
-
-[Twitch]
-enabled = false
-apkmirror-dlurl = "https://www.apkmirror.com/apk/twitch-interactive-inc/twitch/"
-uptodown-dlurl = "https://twitch.en.uptodown.com/android"
+arch = "arm64-v8a"
+dpi = "480-640dpi"
+apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
