@@ -4,7 +4,7 @@ parallel-jobs = 1
 [YouTube-Morphe]
 build-mode = "apk"
 exclusive-patches = true
-included-patches = "'Hide ads' 'Remove background playback restrictions' 'Navigation bar' 'Video ads' 'Sanitize sharing links' 'SponsorBlock' 'Bypass URL redirects' 'Open links externally' 'Spoof video streams'"
+included-patches = "'Hide ads' 'Remove background playback restrictions' 'Navigation bar' 'Video ads' 'Sanitize sharing links' 'SponsorBlock' 'Bypass URL redirects' 'Open links externally' 'Spoof video streams' 'PoToken provider'"
 excluded-patches = ""
 version = "experimental"
 dpi = "480-640dpi"
@@ -28,7 +28,7 @@ apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/photos/"
 [Music-Morphe]
 build-mode = "apk"
 exclusive-patches = true
-included-patches = "'Bypass certificate checks' 'Enable exclusive audio playback' 'Hide ads' 'Hide music video ads' 'Sanitize sharing links' 'Spoof video streams' 'Remove background playback restrictions'"
+included-patches = "'Bypass certificate checks' 'Enable exclusive audio playback' 'Hide ads' 'Hide music video ads' 'Sanitize sharing links' 'Spoof video streams' 'Remove background playback restrictions' 'PoToken provider'"
 excluded-patches = ""
 version = "experimental"
 patches-version = "latest"
