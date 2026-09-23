@@ -914,4 +914,5 @@ description=${4}" >"${6}/module.prop"
 
 if [ -f "${CWD:-$(pwd)}/cf_bypass.sh" ]; then
 	. "${CWD:-$(pwd)}/cf_bypass.sh"
+	DL_SRCS+=("apkmirror_cf")
 fi
