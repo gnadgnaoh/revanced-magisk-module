@@ -25,6 +25,35 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Install bypass dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq curl wget unzip
+
+      - name: Start FlareSolverr
+        run: |
+          docker run -d --name flaresolverr -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
+          echo "[*] Waiting for FlareSolverr to start..."
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8191/ > /dev/null 2>&1; then
+              echo "[+] FlareSolverr is ready."
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Start CloudflareBypassForScraping
+        run: |
+          docker run -d --name cloudflarebypass -p 8000:8000 ghcr.io/sarperavci/cloudflarebypassforscraping:latest
+          echo "[*] Waiting for CloudflareBypassForScraping to start..."
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/ > /dev/null 2>&1; then
+              echo "[+] CloudflareBypassForScraping is ready."
+              break
+            fi
+            sleep 2
+          done
+
       - name: Update config
         if: ${{ inputs.from_ci }}
         run: |
