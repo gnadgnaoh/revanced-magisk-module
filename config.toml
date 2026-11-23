@@ -28,7 +28,7 @@ apkmirror_cf-dlurl = "https://www.apkmirror.com/apk/google-inc/photos/"
 [Music-Morphe]
 build-mode = "apk"
 exclusive-patches = true
-included-patches = "'Bypass certificate checks' 'Enable exclusive audio playback' 'Hide ads' 'Hide music video ads' 'Sanitize sharing links' 'Spoof video streams' 'Remove background playback restrictions' 'PoToken provider' 'Download'"
+included-patches = "'A-B loop' 'Playlist track tap action' 'Remember shuffle state' 'Remember repeat state' 'Skip silence' 'SponsorBlock' 'Play albums songs' 'Pause when muted' 'Miniplayer previous and next buttons' 'Enable swipe to dismiss miniplayer' 'Enable forced miniplayer'  'Enable exclusive audio playback' 'Disable DRC audio' 'Hide ads' 'Disable dislike redirection' 'Sanitize sharing links' 'Spoof video streams' 'Remove background playback restrictions' 'PoToken provider' 'Crossfade'"
 excluded-patches = ""
 version = "auto"
 patches-version = "latest"
